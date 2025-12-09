@@ -8,17 +8,13 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class PacMan implements GameObject {
-    private int x;
-    private int y;
+    private int x, y;
+    private int startX, startY; // Pour mémoriser le spawn
 
-    // --- SCORE DU JOUEUR ---
     private int score = 0;
 
-    private int dx = 0;
-    private int dy = 0;
-    private int futureDx = 0;
-    private int futureDy = 0;
-
+    private int dx = 0, dy = 0;
+    private int futureDx = 0, futureDy = 0;
     private int speed = 4;
     private int gridSize = 32;
 
@@ -32,8 +28,10 @@ public class PacMan implements GameObject {
 
     public PacMan(GameMap map) {
         this.map = map;
-        this.y = 15 * gridSize;
-        this.x = (map.getWidth() / 2);
+        // Sauvegarde de la position de départ
+        this.startY = 15 * gridSize;
+        this.startX = (map.getWidth() / 2);
+        reset(); // Initialisation
 
         try {
             InputStream is1 = getClass().getResourceAsStream("/Pacman_HD.png");
@@ -41,6 +39,17 @@ public class PacMan implements GameObject {
             InputStream is2 = getClass().getResourceAsStream("/Pacman2_HD.png");
             if (is2 != null) img2 = ImageIO.read(is2);
         } catch (IOException e) { e.printStackTrace(); }
+    }
+
+    // Remet PacMan au début (appelé quand on meurt)
+    public void reset() {
+        this.x = startX;
+        this.y = startY;
+        this.dx = 0;
+        this.dy = 0;
+        this.futureDx = 0;
+        this.futureDy = 0;
+        this.currentDirection = 0;
     }
 
     @Override
@@ -54,23 +63,19 @@ public class PacMan implements GameObject {
     private void checkFood() {
         int centerX = x + gridSize / 2;
         int centerY = y + gridSize / 2;
-
         if (map.tryEatDot(centerX, centerY)) {
             score += 10;
         }
     }
 
-    // --- NOUVELLES MÉTHODES POUR LA CERISE ---
-    public void addScore(int points) {
-        this.score += points;
-    }
-
+    public void addScore(int points) { this.score += points; }
     public int getX() { return x; }
     public int getY() { return y; }
-    // -----------------------------------------
+    public int getScore() { return score; }
 
-    public int getScore() {
-        return score;
+    // Pour la collision avec les fantômes
+    public Rectangle getBounds() {
+        return new Rectangle(x + 4, y + 4, gridSize - 8, gridSize - 8);
     }
 
     private void updateAnimation() {
@@ -88,7 +93,6 @@ public class PacMan implements GameObject {
 
             int nextColFuture = col + (futureDx / speed);
             int nextRowFuture = row + (futureDy / speed);
-
             int wrappedFutureX = wrapIndex(nextColFuture * gridSize, map.getWidth());
             int wrappedFutureY = wrapIndex(nextRowFuture * gridSize, map.getHeight());
 
@@ -99,7 +103,6 @@ public class PacMan implements GameObject {
 
             int nextColCurrent = col + (dx / speed);
             int nextRowCurrent = row + (dy / speed);
-
             int wrappedCurrentX = wrapIndex(nextColCurrent * gridSize, map.getWidth());
             int wrappedCurrentY = wrapIndex(nextRowCurrent * gridSize, map.getHeight());
 
@@ -123,10 +126,8 @@ public class PacMan implements GameObject {
     private void updatePosition(){
         x += dx;
         y += dy;
-
         int mapW = map.getWidth();
         int mapH = map.getHeight();
-
         if (x < 0) x = x + mapW;
         if (x >= mapW) x = x - mapW;
         if (y < 0) y = y + mapH;
