@@ -9,20 +9,20 @@ import java.io.InputStream;
 
 public class PacMan implements GameObject {
     private int x, y;
-    private int startX, startY; // Pour mémoriser le spawn
+    private final int startX;
+    private final int startY; // Pour mémoriser le spawn
 
     private int score = 0;
 
     private int dx = 0, dy = 0;
     private int futureDx = 0, futureDy = 0;
-    private int speed = 4;
-    private int gridSize = 32;
+    private final int speed = 4;
+    private final int gridSize = 32;
 
     private BufferedImage img1 = null;
     private BufferedImage img2 = null;
     private int animationCounter = 0;
     private boolean useImage1 = true;
-    private int animationSpeed = 10;
     private int currentDirection = 0;
     private GameMap map;
 
@@ -80,6 +80,7 @@ public class PacMan implements GameObject {
 
     private void updateAnimation() {
         animationCounter++;
+        int animationSpeed = 10;
         if (animationCounter >= animationSpeed) {
             useImage1 = !useImage1;
             animationCounter = 0;

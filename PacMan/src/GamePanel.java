@@ -16,11 +16,11 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
     private GameMap gameMap;
     private Cherry cherry;
 
-    private ArrayList<Ghost> ghosts = new ArrayList<>();
+    private final ArrayList<Ghost> ghosts = new ArrayList<>();
     private final ArrayList<GameObject> gameObjects = new ArrayList<>();
 
     // 1. Déclarer le gestionnaire de son
-    private Sounds soundEffect = new Sounds();
+    private final Sounds soundEffect = new Sounds();
 
     // 2. Méthode utilitaire pour jouer un son (plus propre)
     public void playSE(int i) {
