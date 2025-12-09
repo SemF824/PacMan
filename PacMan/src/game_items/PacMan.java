@@ -48,28 +48,30 @@ public class PacMan implements GameObject {
         updateSpeed();
         updatePosition();
         updateAnimation();
-
-        // --- VERIFIER SI ON MANGE ---
         checkFood();
     }
 
-    // --- LOGIQUE POUR MANGER ---
     private void checkFood() {
-        // On vérifie le centre de PacMan pour manger le point
         int centerX = x + gridSize / 2;
         int centerY = y + gridSize / 2;
 
-        // Si la map nous dit qu'on a mangé un point
         if (map.tryEatDot(centerX, centerY)) {
-            score += 10; // On augmente le score
+            score += 10;
         }
     }
 
-    // Getter pour que le GamePanel puisse afficher le score
+    // --- NOUVELLES MÉTHODES POUR LA CERISE ---
+    public void addScore(int points) {
+        this.score += points;
+    }
+
+    public int getX() { return x; }
+    public int getY() { return y; }
+    // -----------------------------------------
+
     public int getScore() {
         return score;
     }
-    // ---------------------------
 
     private void updateAnimation() {
         animationCounter++;
