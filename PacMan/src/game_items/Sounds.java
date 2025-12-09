@@ -15,7 +15,7 @@ public class Sounds {
         // Indice 0 = Musique de fond (Intro)
         soundURL[0] = getClass().getResource("/sounds/the-pacman-variations-17844.wav");
         // Indice 1 = Bruitage Manger (Chomp)
-        soundURL[1] = getClass().getResource("/sounds/playing-pac-man-6783.wav");
+        soundURL[1] = getClass().getResource("/sounds/manger.wav");
 
         // CRASH-TEST DEBUG : Si ça affiche null, le chemin est faux ou le fichier manque
         if (soundURL[0] == null) System.err.println("ERREUR CRITIQUE : Impossible de trouver intro.wav");
