@@ -14,50 +14,65 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
     private PacMan pacMan;
     private GameMap gameMap;
     private Cherry cherry;
-
     private ArrayList<Ghost> ghosts = new ArrayList<>();
     private final ArrayList<GameObject> gameObjects = new ArrayList<>();
 
+    private Timer timer;
+
     public GamePanel() {
         setBackground(Color.BLACK);
-        gameMap = new GameMap();
-        setPreferredSize(new Dimension(gameMap.getWidth(), gameMap.getHeight()));
+        // On initialise le jeu pour la première fois
+        initGame();
 
-        pacMan = new PacMan(gameMap);
-        cherry = new Cherry(gameMap, pacMan);
-
-        // --- PLACEMENT DES FANTOMES DANS LES 2 MAISONS ---
-
-        int gridSize = 32;
-        int yHouse = 9 * gridSize; // La ligne 9 est à l'intérieur de la maison
-
-        // MAISON 1 (GAUCHE) - Autour de la colonne 9
-        int house1_x = 9 * gridSize;
-        Ghost red   = new Ghost(gameMap, Color.RED, house1_x, yHouse);
-        Ghost pink  = new Ghost(gameMap, Color.PINK, house1_x + gridSize, yHouse); // Un peu à droite
-
-        // MAISON 2 (DROITE) - Autour de la colonne 28 (19 + 9)
-        int house2_x = 28 * gridSize;
-        Ghost cyan   = new Ghost(gameMap, Color.CYAN, house2_x, yHouse);
-        Ghost orange = new Ghost(gameMap, Color.ORANGE, house2_x + gridSize, yHouse); // Un peu à droite
-
-        ghosts.add(red);
-        ghosts.add(pink);
-        ghosts.add(cyan);
-        ghosts.add(orange);
-
-        // -------------------------------------------------
-
-        gameObjects.add(gameMap);
-        gameObjects.add(cherry);
-        gameObjects.addAll(ghosts);
-        gameObjects.add(pacMan);
-
-        Timer timer = new Timer(16, this);
+        timer = new Timer(16, this);
         timer.start();
 
         setFocusable(true);
         addKeyListener(this);
+    }
+
+    // --- INITIALISATION COMPLÈTE (Nouvelle partie) ---
+    private void initGame() {
+        // On vide tout pour repartir à zéro
+        ghosts.clear();
+        gameObjects.clear();
+
+        // Nouvelle carte (les points réapparaissent)
+        gameMap = new GameMap();
+        setPreferredSize(new Dimension(gameMap.getWidth(), gameMap.getHeight()));
+
+        // Nouveau PacMan (Score 0, Vies 3)
+        pacMan = new PacMan(gameMap);
+        cherry = new Cherry(gameMap, pacMan);
+
+        // Nouveaux fantômes avec leurs personnalités
+        int gridSize = 32;
+        int yHouse = 9 * gridSize;
+        int house1_x = 9 * gridSize;
+        int house2_x = 28 * gridSize;
+
+        // 1. Blinky (Rouge)
+        ghosts.add(new Ghost(gameMap, pacMan, Color.RED, house1_x, yHouse, 0.75, 1));
+        // 2. Pinky (Rose)
+        ghosts.add(new Ghost(gameMap, pacMan, Color.PINK, house1_x + gridSize, yHouse, 0.60, 2));
+        // 3. Inky (Cyan)
+        ghosts.add(new Ghost(gameMap, pacMan, Color.CYAN, house2_x, yHouse, 0.40, 2));
+        // 4. Clyde (Orange)
+        ghosts.add(new Ghost(gameMap, pacMan, Color.ORANGE, house2_x + gridSize, yHouse, 0.20, 2));
+
+        // On ajoute tout à la liste d'affichage
+        gameObjects.add(gameMap);
+        gameObjects.add(cherry);
+        gameObjects.addAll(ghosts);
+        gameObjects.add(pacMan);
+    }
+
+    // --- RESET DES POSITIONS (Après une mort, mais il reste des vies) ---
+    private void resetPositions() {
+        pacMan.resetPosition(); // PacMan retourne au départ
+        for (Ghost ghost : ghosts) {
+            ghost.reset(); // Les fantômes retournent dans la maison
+        }
     }
 
     @Override
@@ -65,24 +80,48 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
         for (GameObject gameObject : gameObjects) {
             gameObject.update();
         }
+
+        int foodStatus = pacMan.checkFood();
+        if (foodStatus == 1) {
+            pacMan.addScore(10);
+        } else if (foodStatus == 2) {
+            pacMan.addScore(50);
+            for (Ghost g : ghosts) g.startFrightened();
+        }
+
         checkGhostCollisions();
         repaint();
     }
 
     private void checkGhostCollisions() {
         Rectangle pacManBounds = pacMan.getBounds();
+
         for (Ghost ghost : ghosts) {
             if (ghost.getBounds().intersects(pacManBounds)) {
-                System.out.println("Mort !");
-                resetGame();
-            }
-        }
-    }
 
-    private void resetGame() {
-        pacMan.reset();
-        for (Ghost ghost : ghosts) {
-            ghost.reset();
+                if (ghost.isFrightened()) {
+                    // Manger le fantôme
+                    System.out.println("Miam ! (+200)");
+                    pacMan.addScore(200);
+                    ghost.die();
+                } else {
+                    // --- MORT DE PACMAN ---
+                    pacMan.loseLife();
+                    System.out.println("Aie ! Vies restantes : " + pacMan.getLives());
+
+                    if (pacMan.getLives() > 0) {
+                        // Il reste des vies : on remet tout le monde à sa place
+                        resetPositions();
+                    } else {
+                        // Plus de vie : GAME OVER -> On recommence tout
+                        System.out.println("GAME OVER - RESET");
+                        initGame();
+
+                        // --- IMPORTANT : ARRÊTER LA BOUCLE ---
+                        return; // Empêche le crash ConcurrentModificationException
+                    }
+                }
+            }
         }
     }
 
@@ -106,8 +145,10 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
             gameObject.draw(g);
         }
 
+        // Affichage Score et Vies
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 18));
         g.drawString("Score: " + pacMan.getScore(), 20, 30);
+        g.drawString("Vies: " + pacMan.getLives(), 150, 30);
     }
 }

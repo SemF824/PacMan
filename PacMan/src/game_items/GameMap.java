@@ -1,20 +1,38 @@
 package game_items;
 
 import java.awt.*;
+import java.util.ArrayList; // Nécessaire pour la liste d'attente
+import java.util.List;
 
 public class GameMap implements GameObject {
 
-    // Size of each grid cell in pixels
     private final int gridSize = 32;
-
-    // levelData holds the full map (rows x cols). We build it by repeating a base pattern.
     private final int[][] levelData;
 
+    // --- GESTION DU RESPAWN ---
+    // Une petite classe interne pour mémoriser quel point doit réapparaître et quand
+    private class RespawnTask {
+        int row;
+        int col;
+        int timer;
+
+        public RespawnTask(int row, int col) {
+            this.row = row;
+            this.col = col;
+            // Le jeu tourne à ~60 images/seconde (16ms par tick)
+            // 60 secondes * 62.5 ticks = 3750 frames environ
+            this.timer = 3750;
+        }
+    }
+
+    // La liste des points en attente de réapparition
+    private List<RespawnTask> respawnTasks = new ArrayList<>();
+    // ---------------------------
+
     public GameMap() {
-        // repeat factor: how many times the base pattern is concatenated horizontally
         int repeat = 2;
 
-        // base pattern: the original map layout (0=dot,1=wall,2=gate,3=empty)
+        // 0=dot, 1=wall, 2=gate, 3=empty
         int[][] base = {
                 {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
                 {1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1},
@@ -51,19 +69,51 @@ public class GameMap implements GameObject {
             }
         }
 
-        // Opening center wall for spawn
+        // Murs spéciaux et spawn
         int centerCol = cols / 2;
         levelData[15][centerCol] = 0;
         levelData[15][centerCol - 1] = 0;
+        levelData[7][centerCol] = 3;
+        levelData[7][centerCol - 1] = 3;
+        levelData[8][centerCol] = 2;
+        levelData[8][centerCol - 1] = 2;
+        levelData[9][centerCol] = 3;
+        levelData[9][centerCol - 1] = 3;
 
         for (int r = 0; r < rows; r++) {
             levelData[r][0] = 1;
             levelData[r][cols - 1] = 1;
         }
+
+        // Super Pac-Gommes aux coins
+        levelData[1][1] = 4;
+        levelData[1][cols - 2] = 4;
+        levelData[rows - 2][1] = 4;
+        levelData[rows - 2][cols - 2] = 4;
     }
 
     @Override
-    public void update() {}
+    public void update() {
+        // --- MISE A JOUR DU RESPAWN ---
+        // On parcourt la liste à l'envers pour pouvoir supprimer des éléments sans bug
+        for (int i = respawnTasks.size() - 1; i >= 0; i--) {
+            RespawnTask task = respawnTasks.get(i);
+
+            // On diminue le temps
+            task.timer--;
+
+            // Si le temps est écoulé (1 minute passée)
+            if (task.timer <= 0) {
+                // On fait réapparaître le super point sur la carte
+                levelData[task.row][task.col] = 4;
+
+                // On retire la tâche de la liste
+                respawnTasks.remove(i);
+
+                System.out.println("Super Point a respawn !");
+            }
+        }
+    }
 
     @Override
     public void draw(Graphics g) {
@@ -77,45 +127,58 @@ public class GameMap implements GameObject {
                 int x = col * gridSize;
                 int y = row * gridSize;
 
-                if (tile == 1) { // WALL
+                if (tile == 1) { // MUR
                     g.setColor(Color.BLACK);
                     g.fillRect(x, y, gridSize, gridSize);
                     g.setColor(new Color(33, 33, 255));
                     g.drawRect(x + 5, y + 5, gridSize - 10, gridSize - 10);
                 }
-                else if (tile == 2) { // GATE
+                else if (tile == 2) { // PORTE
                     g.setColor(Color.PINK);
                     g.drawLine(x, y + gridSize/2, x + gridSize, y + gridSize/2);
                 }
-                else if (tile == 0) { // DOT
+                else if (tile == 0) { // PETIT POINT
                     g.setColor(new Color(255, 183, 174));
-                    // Dessiner un petit carré centré
                     g.fillRect(x + 14, y + 14, 4, 4);
+                }
+                else if (tile == 4) { // SUPER POINT
+                    g.setColor(new Color(255, 183, 174));
+                    // Animation simple : ça grossit et rapetisse un peu selon le temps
+                    // (Utilisation du temps système pour faire battre le point)
+                    long time = System.currentTimeMillis() / 200;
+                    int size = (time % 2 == 0) ? 16 : 14;
+                    int offset = (32 - size) / 2;
+
+                    g.fillOval(x + offset, y + offset, size, size);
                 }
             }
         }
     }
 
-    // --- NOUVELLE MÉTHODE POUR MANGER LES POINTS ---
-    // Vérifie si la position x,y correspond à un point.
-    // Si oui, le point disparaît (devient 3) et on renvoie true.
-    public boolean tryEatDot(int x, int y) {
+    // Renvoie 0 si rien, 1 si point normal, 2 si super point
+    public int tryEatDot(int x, int y) {
         int col = x / gridSize;
         int row = y / gridSize;
-
-        // Vérification des limites pour éviter les erreurs
         if (col < 0 || col >= levelData[0].length || row < 0 || row >= levelData.length) {
-            return false;
+            return 0;
         }
 
-        // Si c'est un point (0)
-        if (levelData[row][col] == 0) {
-            levelData[row][col] = 3; // On le remplace par 3 (vide)
-            return true; // Miam !
+        int tile = levelData[row][col];
+
+        if (tile == 0) { // Petit point
+            levelData[row][col] = 3;
+            return 1;
         }
-        return false;
+        else if (tile == 4) { // Super point
+            levelData[row][col] = 3; // On l'enlève de la carte
+
+            // --- ON LANCE LE CHRONO POUR LE RESPAWN ---
+            respawnTasks.add(new RespawnTask(row, col));
+
+            return 2;
+        }
+        return 0;
     }
-    // ------------------------------------------------
 
     public boolean isWall(int x, int y) {
         int col = x / gridSize;
@@ -123,7 +186,7 @@ public class GameMap implements GameObject {
         if (col < 0 || col >= levelData[0].length || row < 0 || row >= levelData.length) {
             return false;
         }
-        return levelData[row][col] == 1 || levelData[row][col] == 2;
+        return levelData[row][col] == 1;
     }
 
     public int getGridSize() { return gridSize; }

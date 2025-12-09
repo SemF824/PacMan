@@ -8,18 +8,17 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class PacMan implements GameObject {
-    private int x, y;
-    private int startX, startY; // Pour mémoriser le spawn
-
+    private int x, y, startX, startY;
     private int score = 0;
 
-    private int dx = 0, dy = 0;
-    private int futureDx = 0, futureDy = 0;
+    // --- NOUVEAU : SYSTÈME DE VIES ---
+    private int lives = 3;
+
+    private int dx = 0, dy = 0, futureDx = 0, futureDy = 0;
     private int speed = 4;
     private int gridSize = 32;
 
-    private BufferedImage img1 = null;
-    private BufferedImage img2 = null;
+    private BufferedImage img1 = null, img2 = null;
     private int animationCounter = 0;
     private boolean useImage1 = true;
     private int animationSpeed = 10;
@@ -28,10 +27,9 @@ public class PacMan implements GameObject {
 
     public PacMan(GameMap map) {
         this.map = map;
-        // Sauvegarde de la position de départ
         this.startY = 15 * gridSize;
         this.startX = (map.getWidth() / 2);
-        reset(); // Initialisation
+        resetPosition(); // On utilise une méthode dédiée pour la position
 
         try {
             InputStream is1 = getClass().getResourceAsStream("/Pacman_HD.png");
@@ -41,39 +39,39 @@ public class PacMan implements GameObject {
         } catch (IOException e) { e.printStackTrace(); }
     }
 
-    // Remet PacMan au début (appelé quand on meurt)
-    public void reset() {
-        this.x = startX;
-        this.y = startY;
-        this.dx = 0;
-        this.dy = 0;
-        this.futureDx = 0;
-        this.futureDy = 0;
+    // Remet PacMan au point de départ (sans toucher au score ni aux vies)
+    public void resetPosition() {
+        this.x = startX; this.y = startY;
+        this.dx = 0; this.dy = 0;
+        this.futureDx = 0; this.futureDy = 0;
         this.currentDirection = 0;
     }
+
+    // --- GESTION DES VIES ---
+    public int getLives() { return lives; }
+    public void loseLife() { lives--; }
+    // ------------------------
 
     @Override
     public void update() {
         updateSpeed();
         updatePosition();
         updateAnimation();
-        checkFood();
     }
 
-    private void checkFood() {
+    public int checkFood() {
         int centerX = x + gridSize / 2;
         int centerY = y + gridSize / 2;
-        if (map.tryEatDot(centerX, centerY)) {
-            score += 10;
-        }
+        return map.tryEatDot(centerX, centerY);
     }
 
     public void addScore(int points) { this.score += points; }
     public int getX() { return x; }
     public int getY() { return y; }
+    public int getDx() { return dx; }
+    public int getDy() { return dy; }
     public int getScore() { return score; }
 
-    // Pour la collision avec les fantômes
     public Rectangle getBounds() {
         return new Rectangle(x + 4, y + 4, gridSize - 8, gridSize - 8);
     }
@@ -97,8 +95,7 @@ public class PacMan implements GameObject {
             int wrappedFutureY = wrapIndex(nextRowFuture * gridSize, map.getHeight());
 
             if (!map.isWall(wrappedFutureX, wrappedFutureY)) {
-                dx = futureDx;
-                dy = futureDy;
+                dx = futureDx; dy = futureDy;
             }
 
             int nextColCurrent = col + (dx / speed);
@@ -107,8 +104,7 @@ public class PacMan implements GameObject {
             int wrappedCurrentY = wrapIndex(nextRowCurrent * gridSize, map.getHeight());
 
             if (map.isWall(wrappedCurrentX, wrappedCurrentY)) {
-                dx = 0;
-                dy = 0;
+                dx = 0; dy = 0;
             }
         }
         if (dx > 0) currentDirection = 0;
@@ -124,14 +120,10 @@ public class PacMan implements GameObject {
     }
 
     private void updatePosition(){
-        x += dx;
-        y += dy;
-        int mapW = map.getWidth();
-        int mapH = map.getHeight();
-        if (x < 0) x = x + mapW;
-        if (x >= mapW) x = x - mapW;
-        if (y < 0) y = y + mapH;
-        if (y >= mapH) y = y - mapH;
+        x += dx; y += dy;
+        int mapW = map.getWidth(); int mapH = map.getHeight();
+        if (x < 0) x = x + mapW; if (x >= mapW) x = x - mapW;
+        if (y < 0) y = y + mapH; if (y >= mapH) y = y - mapH;
     }
 
     @Override
@@ -142,7 +134,6 @@ public class PacMan implements GameObject {
         AffineTransform oldTransform = g2d.getTransform();
         g2d.translate(x + gridSize / 2, y + gridSize / 2);
         switch (currentDirection) {
-            case 0: break;
             case 1: g2d.rotate(Math.toRadians(90)); break;
             case 2: g2d.scale(-1, 1); break;
             case 3: g2d.rotate(Math.toRadians(-90)); break;
