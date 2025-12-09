@@ -15,6 +15,7 @@ public class GameMap implements GameObject {
         int repeat = 2; // increase to make the map wider
 
         // base pattern: the original map layout (0=dot,1=wall,2=gate,3=empty)
+        // J'ai remplacé presque tous les '3' par des '0' pour avoir des points partout.
         int[][] base = {
                 {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
                 {1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1},
@@ -22,16 +23,19 @@ public class GameMap implements GameObject {
                 {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
                 {1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,0,1},
                 {1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1},
-                {1,1,1,1,0,1,1,1,3,1,3,1,1,1,0,1,1,1,1},
+                // Ci-dessous : j'ai mis des 0 dans les couloirs autour du centre
+                {1,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,1},
+                // Ci-dessous : L'intérieur de la boite (milieu) reste à 3 (vide) sinon c'est immangeable
                 {1,1,1,1,0,1,3,3,3,3,3,3,3,1,0,1,1,1,1},
                 {1,1,1,1,0,1,3,1,1,2,1,1,3,1,0,1,1,1,1},
-                {3,3,3,3,0,3,3,1,3,3,3,1,3,3,0,3,3,3,3},
+                // Ci-dessous : J'ai remplacé les 3 du tunnel par des 0
+                {0,0,0,0,0,0,0,1,3,3,3,1,0,0,0,0,0,0,0},
                 {1,1,1,1,0,1,3,1,1,1,1,1,3,1,0,1,1,1,1},
-                {1,1,1,1,0,1,3,3,3,3,3,3,3,1,0,1,1,1,1},
+                {1,1,1,1,0,1,0,3,3,3,3,3,0,1,0,1,1,1,1}, // Mis des 0 sur les bords
                 {1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1},
                 {1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1},
                 {1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1},
-                {1,0,0,1,0,0,0,0,0,3,0,0,0,0,0,1,0,0,1},
+                {1,0,0,1,0,0,0,0,0,3,0,0,0,0,0,1,0,0,1}, // Le 3 ici est peut-être un bonus, laissé tel quel ou mettre 0
                 {1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1},
                 {1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1},
                 {1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1},
@@ -51,6 +55,11 @@ public class GameMap implements GameObject {
                 }
             }
         }
+
+        // --- OUVERTURE DU MUR CENTRAL (pour le spawn) ---
+        int centerCol = cols / 2;
+        levelData[15][centerCol] = 0;
+        levelData[15][centerCol - 1] = 0;
 
         // Ensure boundaries: leftmost and rightmost columns are walls so the map edges remain solid
         for (int r = 0; r < rows; r++) {

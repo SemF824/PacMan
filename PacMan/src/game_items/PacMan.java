@@ -8,10 +8,10 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class PacMan implements GameObject {
-    // --- STARTING POSITION (pixel coordinates) ---
-    // This correlates to the '3' cell in the base map (col 9, row 15)
-    private int x = 9 * 32;
-    private int y = 15 * 32;
+    // --- STARTING POSITION ---
+    // On enlève les valeurs fixes ici, on les calcule dans le constructeur
+    private int x;
+    private int y;
 
     // Current velocity in pixels per update (dx, dy), and the future requested direction
     private int dx = 0;
@@ -34,6 +34,15 @@ public class PacMan implements GameObject {
 
     public PacMan(GameMap map) {
         this.map = map;
+
+        // --- CALCUL DU CENTRE ---
+        // On place PacMan à la ligne 15
+        this.y = 15 * gridSize;
+        // On calcule la colonne du milieu en pixels
+        // (Largeur map / 2) nous donne le pixel central.
+        // Comme la map a un nombre pair de tuiles, le milieu tombe pile sur une tuile.
+        this.x = (map.getWidth() / 2);
+
         // Load two PacMan frames from resources (if available)
         try {
             InputStream is1 = getClass().getResourceAsStream("/Pacman_HD.png");
