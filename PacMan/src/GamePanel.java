@@ -19,10 +19,45 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
 
     private Timer timer;
 
+    // --- NOUVEAU : GESTION DE L'INTERFACE DE FIN ---
+    private boolean gameOver = false;
+    private JButton restartButton;
+    // -----------------------------------------------
+
     public GamePanel() {
         setBackground(Color.BLACK);
-        // On initialise le jeu pour la première fois
+        // Important pour pouvoir placer le bouton manuellement au centre
+        setLayout(null);
+
+        // Initialisation du jeu
         initGame();
+
+        // --- CRÉATION DU BOUTON RESTART ---
+        restartButton = new JButton("Recommencer");
+        restartButton.setFont(new Font("Arial", Font.BOLD, 14));
+        restartButton.setFocusable(false); // Important : pour ne pas voler le focus du clavier
+        restartButton.setVisible(false); // Caché au début
+
+        // Calcul pour centrer le bouton (approximatif, sera ajusté si besoin)
+        int btnW = 140;
+        int btnH = 40;
+        // La map fait environ 1200px de large
+        restartButton.setBounds((gameMap.getWidth() / 2) - (btnW / 2), (gameMap.getHeight() / 2) + 50, btnW, btnH);
+
+        restartButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Quand on clique : on relance tout
+                initGame();
+                gameOver = false;
+                restartButton.setVisible(false);
+                // On redonne le focus au panneau pour que les flèches remarchent
+                requestFocusInWindow();
+            }
+        });
+
+        add(restartButton);
+        // -----------------------------------
 
         timer = new Timer(16, this);
         timer.start();
@@ -31,52 +66,46 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
         addKeyListener(this);
     }
 
-    // --- INITIALISATION COMPLÈTE (Nouvelle partie) ---
     private void initGame() {
-        // On vide tout pour repartir à zéro
         ghosts.clear();
         gameObjects.clear();
 
-        // Nouvelle carte (les points réapparaissent)
         gameMap = new GameMap();
         setPreferredSize(new Dimension(gameMap.getWidth(), gameMap.getHeight()));
 
-        // Nouveau PacMan (Score 0, Vies 3)
         pacMan = new PacMan(gameMap);
         cherry = new Cherry(gameMap, pacMan);
 
-        // Nouveaux fantômes avec leurs personnalités
         int gridSize = 32;
         int yHouse = 9 * gridSize;
         int house1_x = 9 * gridSize;
         int house2_x = 28 * gridSize;
 
-        // 1. Blinky (Rouge)
         ghosts.add(new Ghost(gameMap, pacMan, Color.RED, house1_x, yHouse, 0.75, 1));
-        // 2. Pinky (Rose)
         ghosts.add(new Ghost(gameMap, pacMan, Color.PINK, house1_x + gridSize, yHouse, 0.60, 2));
-        // 3. Inky (Cyan)
         ghosts.add(new Ghost(gameMap, pacMan, Color.CYAN, house2_x, yHouse, 0.40, 2));
-        // 4. Clyde (Orange)
         ghosts.add(new Ghost(gameMap, pacMan, Color.ORANGE, house2_x + gridSize, yHouse, 0.20, 2));
 
-        // On ajoute tout à la liste d'affichage
         gameObjects.add(gameMap);
         gameObjects.add(cherry);
         gameObjects.addAll(ghosts);
         gameObjects.add(pacMan);
     }
 
-    // --- RESET DES POSITIONS (Après une mort, mais il reste des vies) ---
     private void resetPositions() {
-        pacMan.resetPosition(); // PacMan retourne au départ
+        pacMan.resetPosition();
         for (Ghost ghost : ghosts) {
-            ghost.reset(); // Les fantômes retournent dans la maison
+            ghost.reset();
         }
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        // SI GAME OVER : On ne met plus rien à jour, le jeu est figé
+        if (gameOver) {
+            return;
+        }
+
         for (GameObject gameObject : gameObjects) {
             gameObject.update();
         }
@@ -100,25 +129,19 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
             if (ghost.getBounds().intersects(pacManBounds)) {
 
                 if (ghost.isFrightened()) {
-                    // Manger le fantôme
-                    System.out.println("Miam ! (+200)");
                     pacMan.addScore(200);
                     ghost.die();
                 } else {
-                    // --- MORT DE PACMAN ---
                     pacMan.loseLife();
                     System.out.println("Aie ! Vies restantes : " + pacMan.getLives());
 
                     if (pacMan.getLives() > 0) {
-                        // Il reste des vies : on remet tout le monde à sa place
                         resetPositions();
                     } else {
-                        // Plus de vie : GAME OVER -> On recommence tout
-                        System.out.println("GAME OVER - RESET");
-                        initGame();
-
-                        // --- IMPORTANT : ARRÊTER LA BOUCLE ---
-                        return; // Empêche le crash ConcurrentModificationException
+                        // --- C'EST ICI QUE LE GAME OVER S'ACTIVE ---
+                        System.out.println("GAME OVER");
+                        gameOver = true; // On active l'état de fin
+                        restartButton.setVisible(true); // On affiche le bouton
                     }
                 }
             }
@@ -127,6 +150,9 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
 
     @Override
     public void keyPressed(KeyEvent e) {
+        // On bloque les touches si le jeu est fini
+        if (gameOver) return;
+
         switch(e.getKeyCode()) {
             case KeyEvent.VK_UP: pacMan.keyUp(); break;
             case KeyEvent.VK_DOWN: pacMan.keyDown(); break;
@@ -145,10 +171,37 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
             gameObject.draw(g);
         }
 
-        // Affichage Score et Vies
+        // Affichage HUD normal
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 18));
         g.drawString("Score: " + pacMan.getScore(), 20, 30);
         g.drawString("Vies: " + pacMan.getLives(), 150, 30);
+
+        // --- DESSIN DU GAME OVER ---
+        if (gameOver) {
+            // 1. Fond semi-transparent noir
+            g.setColor(new Color(0, 0, 0, 150)); // Noir avec transparence
+            g.fillRect(0, 0, getWidth(), getHeight());
+
+            // 2. Texte "GAME OVER"
+            g.setColor(Color.RED);
+            g.setFont(new Font("Arial", Font.BOLD, 50));
+            String text = "GAME OVER";
+            FontMetrics metrics = g.getFontMetrics();
+            int x = (getWidth() - metrics.stringWidth(text)) / 2;
+            int y = getHeight() / 2 - 20;
+            g.drawString(text, x, y);
+
+            // 3. Texte du Score Final
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("Arial", Font.BOLD, 30));
+            String scoreText = "Score Final : " + pacMan.getScore();
+            metrics = g.getFontMetrics();
+            x = (getWidth() - metrics.stringWidth(scoreText)) / 2;
+            y = getHeight() / 2 + 30;
+            g.drawString(scoreText, x, y);
+
+            // Le bouton se dessine tout seul par dessus car il est ajouté au panel
+        }
     }
 }
