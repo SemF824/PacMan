@@ -1,6 +1,7 @@
-import game_items.Cherry; // Import de la cerise
+import game_items.Cherry;
 import game_items.GameObject;
 import game_items.GameMap;
+import game_items.Ghost;
 import game_items.PacMan;
 
 import javax.swing.*;
@@ -12,9 +13,9 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
 
     private PacMan pacMan;
     private GameMap gameMap;
-    // Ajout de la variable cerise (optionnel si on l'ajoute juste à la liste, mais utile)
     private Cherry cherry;
 
+    private ArrayList<Ghost> ghosts = new ArrayList<>();
     private final ArrayList<GameObject> gameObjects = new ArrayList<>();
 
     public GamePanel() {
@@ -23,15 +24,34 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
         setPreferredSize(new Dimension(gameMap.getWidth(), gameMap.getHeight()));
 
         pacMan = new PacMan(gameMap);
-
-        // Création de la cerise
-        // On lui donne la map (pour savoir où spawner) et pacMan (pour savoir quand être mangée)
         cherry = new Cherry(gameMap, pacMan);
 
-        // Ajout dans l'ordre d'affichage
+        // --- PLACEMENT DES FANTOMES DANS LES 2 MAISONS ---
+
+        int gridSize = 32;
+        int yHouse = 9 * gridSize; // La ligne 9 est à l'intérieur de la maison
+
+        // MAISON 1 (GAUCHE) - Autour de la colonne 9
+        int house1_x = 9 * gridSize;
+        Ghost red   = new Ghost(gameMap, Color.RED, house1_x, yHouse);
+        Ghost pink  = new Ghost(gameMap, Color.PINK, house1_x + gridSize, yHouse); // Un peu à droite
+
+        // MAISON 2 (DROITE) - Autour de la colonne 28 (19 + 9)
+        int house2_x = 28 * gridSize;
+        Ghost cyan   = new Ghost(gameMap, Color.CYAN, house2_x, yHouse);
+        Ghost orange = new Ghost(gameMap, Color.ORANGE, house2_x + gridSize, yHouse); // Un peu à droite
+
+        ghosts.add(red);
+        ghosts.add(pink);
+        ghosts.add(cyan);
+        ghosts.add(orange);
+
+        // -------------------------------------------------
+
         gameObjects.add(gameMap);
-        gameObjects.add(cherry); // La cerise est dessinée par dessus la map
-        gameObjects.add(pacMan); // PacMan par dessus la cerise
+        gameObjects.add(cherry);
+        gameObjects.addAll(ghosts);
+        gameObjects.add(pacMan);
 
         Timer timer = new Timer(16, this);
         timer.start();
@@ -45,7 +65,25 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
         for (GameObject gameObject : gameObjects) {
             gameObject.update();
         }
+        checkGhostCollisions();
         repaint();
+    }
+
+    private void checkGhostCollisions() {
+        Rectangle pacManBounds = pacMan.getBounds();
+        for (Ghost ghost : ghosts) {
+            if (ghost.getBounds().intersects(pacManBounds)) {
+                System.out.println("Mort !");
+                resetGame();
+            }
+        }
+    }
+
+    private void resetGame() {
+        pacMan.reset();
+        for (Ghost ghost : ghosts) {
+            ghost.reset();
+        }
     }
 
     @Override
