@@ -3,6 +3,7 @@ import game_items.GameObject;
 import game_items.GameMap;
 import game_items.Ghost;
 import game_items.PacMan;
+import game_items.Sounds;
 
 import javax.swing.*;
 import java.awt.*;
@@ -18,6 +19,20 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
     private ArrayList<Ghost> ghosts = new ArrayList<>();
     private final ArrayList<GameObject> gameObjects = new ArrayList<>();
 
+    // 1. Déclarer le gestionnaire de son
+    private Sounds soundEffect = new Sounds();
+
+    // 2. Méthode utilitaire pour jouer un son (plus propre)
+    public void playSE(int i) {
+        soundEffect.setFile(i);
+        soundEffect.play();
+    }
+    public void playMusic(int i) {
+        soundEffect.setFile(i);
+        soundEffect.loop(); // Utilise la méthode loop() de ta classe Sounds
+    }
+
+
     public GamePanel() {
         setBackground(Color.BLACK);
         gameMap = new GameMap();
@@ -25,6 +40,15 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
 
         pacMan = new PacMan(gameMap);
         cherry = new Cherry(gameMap, pacMan);
+
+        gameObjects.addAll(ghosts);
+        gameObjects.add(pacMan);
+
+        // DÉMARRAGE DU MOTEUR AUDIO ICI
+        playMusic(0); // 0 = index de ta musique de fond dans Sounds.java
+
+        Timer timer = new Timer(16, this);
+        timer.start();
 
         // --- PLACEMENT DES FANTOMES DANS LES 2 MAISONS ---
 
@@ -53,8 +77,6 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
         gameObjects.addAll(ghosts);
         gameObjects.add(pacMan);
 
-        Timer timer = new Timer(16, this);
-        timer.start();
 
         setFocusable(true);
         addKeyListener(this);
@@ -62,9 +84,19 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        // 1. On capture le score AVANT la mise à jour
+        int oldScore = pacMan.getScore();
+
+        // 2. Mise à jour de tous les objets (PacMan bouge et mange potentiellement ici)
         for (GameObject gameObject : gameObjects) {
             gameObject.update();
         }
+
+        // 3. On compare : Si le score a augmenté, c'est qu'on a mangé !
+        if (pacMan.getScore() > oldScore) {
+            playSE(1); // 1 = index du bruitage "chomp"
+        }
+
         checkGhostCollisions();
         repaint();
     }
