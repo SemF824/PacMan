@@ -9,31 +9,39 @@ import java.util.ArrayList;
 
 public class GamePanel extends JPanel implements KeyListener, ActionListener {
 
+    // The PacMan instance (player)
     private PacMan pacMan;
-    private GameMap gameMap; // Variable pour la carte
+    // The game map which holds tiles and collision data
+    private GameMap gameMap;
+    // Ordered list of objects to update and draw (map first so PacMan is drawn on top)
     private final ArrayList<GameObject> gameObjects = new ArrayList<>();
 
     public GamePanel() {
         setBackground(Color.BLACK);
 
-        // 1. Création de la carte
+        // 1) Create the map object. The map builds its level data and exposes getWidth/getHeight.
         gameMap = new GameMap();
 
-        // 2. Création de PacMan EN LUI DONNANT LA CARTE
+        // Set the panel preferred size to the map pixel size so the window can pack()
+        setPreferredSize(new Dimension(gameMap.getWidth(), gameMap.getHeight()));
+
+        // 2) Create PacMan and give it a reference to the map (needed for collision checks).
         pacMan = new PacMan(gameMap);
 
-        // 3. Ajout à la liste des objets (L'ordre compte : la carte d'abord, PacMan dessus)
+        // 3) Add objects in drawing order: map first, then PacMan on top.
         gameObjects.add(gameMap);
         gameObjects.add(pacMan);
 
+        // 4) Start a timer for the game loop (about 60 FPS -> 16ms tick).
         Timer timer = new Timer(16, this);
         timer.start();
 
+        // 5) Input: listen for arrow keys to control PacMan.
         setFocusable(true);
         addKeyListener(this);
     }
 
-    // ... (Le reste : actionPerformed, paintComponent, KeyPressed ne changent pas)
+    // Game loop tick: update all objects then request repaint
     @Override
     public void actionPerformed(ActionEvent e) {
         for (GameObject gameObject : gameObjects) {
@@ -42,6 +50,7 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
         repaint();
     }
 
+    // Key input: forward to PacMan's convenience methods (they set a "future direction").
     @Override
     public void keyPressed(KeyEvent e) {
         switch(e.getKeyCode()) {
@@ -55,6 +64,7 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
     @Override public void keyReleased(KeyEvent e) {}
     @Override public void keyTyped(KeyEvent e) {}
 
+    // Draw all game objects in order (map then game entities)
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);

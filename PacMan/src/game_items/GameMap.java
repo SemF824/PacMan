@@ -4,35 +4,60 @@ import java.awt.*;
 
 public class GameMap implements GameObject {
 
+    // Size of each grid cell in pixels
     private final int gridSize = 32;
 
-    // 0 = Vide (Chemin avec gomme)
-    // 1 = Mur (Bleu)
-    // 2 = Porte Fantôme (Ligne blanche)
-    // 3 = Vide (Sans gomme, ex: départ Pacman)
-    private final int[][] levelData = {
-            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-            {1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1},
-            {1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1},
-            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-            {1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,0,1},
-            {1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1},
-            {1,1,1,1,0,1,1,1,3,1,3,1,1,1,0,1,1,1,1}, // Passage vers le centre
-            {1,1,1,1,0,1,3,3,3,3,3,3,3,1,0,1,1,1,1},
-            {1,1,1,1,0,1,3,1,1,2,1,1,3,1,0,1,1,1,1}, // Maison fantômes (le 2)
-            {3,3,3,3,0,3,3,1,3,3,3,1,3,3,0,3,3,3,3}, // Tunnel (gauche/droite)
-            {1,1,1,1,0,1,3,1,1,1,1,1,3,1,0,1,1,1,1},
-            {1,1,1,1,0,1,3,3,3,3,3,3,3,1,0,1,1,1,1},
-            {1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1},
-            {1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1},
-            {1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1},
-            {1,0,0,1,0,0,0,0,0,3,0,0,0,0,0,1,0,0,1}, // Le "3" au milieu est le départ PacMan
-            {1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1},
-            {1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1},
-            {1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1},
-            {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-            {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
-    };
+    // levelData holds the full map (rows x cols). We build it by repeating a base pattern.
+    private final int[][] levelData;
+
+    public GameMap() {
+        // repeat factor: how many times the base pattern is concatenated horizontally
+        int repeat = 2; // increase to make the map wider
+
+        // base pattern: the original map layout (0=dot,1=wall,2=gate,3=empty)
+        int[][] base = {
+                {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+                {1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1},
+                {1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1},
+                {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+                {1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,0,1},
+                {1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1},
+                {1,1,1,1,0,1,1,1,3,1,3,1,1,1,0,1,1,1,1},
+                {1,1,1,1,0,1,3,3,3,3,3,3,3,1,0,1,1,1,1},
+                {1,1,1,1,0,1,3,1,1,2,1,1,3,1,0,1,1,1,1},
+                {3,3,3,3,0,3,3,1,3,3,3,1,3,3,0,3,3,3,3},
+                {1,1,1,1,0,1,3,1,1,1,1,1,3,1,0,1,1,1,1},
+                {1,1,1,1,0,1,3,3,3,3,3,3,3,1,0,1,1,1,1},
+                {1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1},
+                {1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1},
+                {1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1},
+                {1,0,0,1,0,0,0,0,0,3,0,0,0,0,0,1,0,0,1},
+                {1,1,0,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,1},
+                {1,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,1},
+                {1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,1,0,1},
+                {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+                {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+        };
+
+        int rows = base.length;
+        int cols = base[0].length * repeat;
+        levelData = new int[rows][cols];
+
+        // Fill levelData by copying the base pattern repeat times horizontally
+        for (int r = 0; r < rows; r++) {
+            for (int rep = 0; rep < repeat; rep++) {
+                for (int c = 0; c < base[0].length; c++) {
+                    levelData[r][rep * base[0].length + c] = base[r][c];
+                }
+            }
+        }
+
+        // Ensure boundaries: leftmost and rightmost columns are walls so the map edges remain solid
+        for (int r = 0; r < rows; r++) {
+            levelData[r][0] = 1;
+            levelData[r][cols - 1] = 1;
+        }
+    }
 
     @Override
     public void update() {}
@@ -40,54 +65,52 @@ public class GameMap implements GameObject {
     @Override
     public void draw(Graphics g) {
         Graphics2D g2d = (Graphics2D) g;
-        // Permet d'avoir des traits plus jolis (lissage)
+        // Enable anti-aliasing for nicer lines
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setStroke(new BasicStroke(2)); // Trait un peu plus épais
+        g2d.setStroke(new BasicStroke(2)); // Slightly thicker strokes for walls
 
+        // Draw each tile according to its value: wall, gate, dot
         for (int row = 0; row < levelData.length; row++) {
             for (int col = 0; col < levelData[0].length; col++) {
                 int tile = levelData[row][col];
                 int x = col * gridSize;
                 int y = row * gridSize;
 
-                if (tile == 1) { // MUR
-                    // 1. On remplit en noir (pour cacher ce qu'il y a dessous)
+                if (tile == 1) { // WALL
+                    // Fill black then draw a small neon-blue rectangle to represent the wall
                     g.setColor(Color.BLACK);
                     g.fillRect(x, y, gridSize, gridSize);
 
-                    // 2. On dessine le contour Bleu "Néon"
-                    g.setColor(new Color(33, 33, 255)); // Bleu Pacman classique
-                    g.drawRect(x + 5, y + 5, gridSize - 10, gridSize - 10); // Petit carré intérieur
-                    // (On ne dessine pas le grand carré extérieur pour donner l'effet "chemin")
+                    g.setColor(new Color(33, 33, 255));
+                    g.drawRect(x + 5, y + 5, gridSize - 10, gridSize - 10);
                 }
-                else if (tile == 2) { // PORTE
+                else if (tile == 2) { // GATE (ghost house door)
                     g.setColor(Color.PINK);
                     g.drawLine(x, y + gridSize/2, x + gridSize, y + gridSize/2);
                 }
-                else if (tile == 0) { // GOMME
-                    g.setColor(new Color(255, 183, 174)); // Couleur saumon
-                    // Petit point centré
+                else if (tile == 0) { // DOT (pellet)
+                    g.setColor(new Color(255, 183, 174));
                     g.fillRect(x + 14, y + 14, 4, 4);
                 }
             }
         }
     }
 
-    // --- CORRECTION CRITIQUE DES COLLISIONS ---
+    // isWall: returns true if the pixel coordinate corresponds to a wall or gate.
+    // Note: if the coordinate is outside the map bounds, we return false so wrap-around can work.
     public boolean isWall(int x, int y) {
-        // On divise par 32 pour avoir l'index de la case
         int col = x / gridSize;
         int row = y / gridSize;
 
-        // Sécurité pour ne pas planter si on sort de l'écran
+        // Out-of-bounds -> not a wall (allows wrap)
         if (col < 0 || col >= levelData[0].length || row < 0 || row >= levelData.length) {
-            return true;
+            return false;
         }
 
-        // Le 1 est un mur, le 2 est la porte (mur pour PacMan)
         return levelData[row][col] == 1 || levelData[row][col] == 2;
     }
 
+    // Helper getters used by other classes
     public int getGridSize() { return gridSize; }
     public int getWidth() { return levelData[0].length * gridSize; }
     public int getHeight() { return levelData.length * gridSize; }
