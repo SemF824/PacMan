@@ -27,7 +27,7 @@ public class PacMan implements GameObject {
     public PacMan(){
         try {
             // ON SUPPOSE QUE L'IMAGE "Pac_man.png" REGARDE VERS LA DROITE PAR DÉFAUT.
-            is = getClass().getResourceAsStream("/Pac_man.png");
+            is = getClass().getResourceAsStream("/Pacman_HD.png");
             if (is != null) img = ImageIO.read(is);
         } catch (IOException e) {
             e.printStackTrace();
