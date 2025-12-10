@@ -2,6 +2,8 @@ package game_items;
 
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.LinkedList; // Nécessaire pour le GPS
+import java.util.Queue;      // Nécessaire pour le GPS
 import java.util.Random;
 
 public class Ghost implements GameObject {
@@ -19,10 +21,13 @@ public class Ghost implements GameObject {
     private int lastDirection = -1;
     private double aggressiveness;
 
-    // --- MODE APEURÉ ---
     private boolean frightened = false;
     private int frightenedTimer = 0;
-    private final int FRIGHTENED_DURATION = 600; // 10 secondes
+    private final int FRIGHTENED_DURATION = 600;
+
+    private boolean dead = false;
+    private int returnSpeed = 4;
+    private int doorY;
 
     public Ghost(GameMap map, PacMan pacMan, Color color, int startX, int startY, double aggressiveness, int speed) {
         this.map = map;
@@ -30,6 +35,7 @@ public class Ghost implements GameObject {
         this.color = color;
         this.startX = startX;
         this.startY = startY;
+        this.doorY = 7 * gridSize;
         this.aggressiveness = aggressiveness;
         this.speed = speed;
         reset();
@@ -41,13 +47,13 @@ public class Ghost implements GameObject {
         this.lastDirection = -1;
         this.isInHouse = true;
         this.frightened = false;
+        this.dead = false;
     }
 
     public void startFrightened() {
-        if (isInHouse) return;
+        if (isInHouse || dead) return;
         this.frightened = true;
         this.frightenedTimer = FRIGHTENED_DURATION;
-        // Demi-tour immédiat
         if (dx != 0 || dy != 0) {
             dx = -dx; dy = -dy;
             if(dx > 0) lastDirection = 3; else if(dx < 0) lastDirection = 2;
@@ -55,75 +61,115 @@ public class Ghost implements GameObject {
         }
     }
 
-    public void die() { reset(); }
+    public void die() {
+        this.frightened = false;
+        this.dead = true;
+    }
 
     public int getX() { return x; }
     public int getY() { return y; }
     public boolean isFrightened() { return frightened; }
+    public boolean isDead() { return dead; }
 
     @Override
     public void update() {
-        if (frightened) {
+        // --- LOGIQUE RETOUR MAISON (YEUX) ---
+        if (dead) {
+            // Alignement avec la porte
+            if (y == doorY && Math.abs(x - startX) < returnSpeed) {
+                x = startX;
+                y += returnSpeed;
+                return;
+            }
+            // Descente finale dans la maison
+            if (y > doorY && y < startY && x == startX) {
+                y += returnSpeed;
+                if (y >= startY) {
+                    y = startY;
+                    dead = false; isInHouse = true; frightened = false;
+                    dx = 0; dy = 0;
+                }
+                return;
+            }
+        }
+
+        if (frightened && !dead) {
             frightenedTimer--;
             if (frightenedTimer <= 0) frightened = false;
         }
+
         if (isInHouse) {
             handleHouseExit();
-        } else {
-            if (x % gridSize == 0 && y % gridSize == 0) chooseDirection();
-            x += dx; y += dy;
-            if (x < 0) x = map.getWidth();
-            if (x >= map.getWidth()) x = -gridSize;
+            return;
         }
+
+        if (x % gridSize == 0 && y % gridSize == 0) {
+            chooseDirection();
+        }
+
+        x += dx;
+        y += dy;
+
+        if (x < 0) x = map.getWidth();
+        if (x >= map.getWidth()) x = -gridSize;
     }
 
     private void handleHouseExit() {
         dy = -2; dx = 0; y += dy;
-        if (y <= 7 * gridSize) { y = 7 * gridSize; isInHouse = false; }
+        if (y <= doorY) { y = doorY; isInHouse = false; }
     }
 
     private void chooseDirection() {
         ArrayList<Integer> possibleMoves = new ArrayList<>();
-        int currentSpeed = frightened ? 1 : speed;
+        int moveSpeed = speed;
+        if (dead) moveSpeed = returnSpeed;
+        else if (frightened) moveSpeed = 1;
 
-        if (!isWallCollision(x, y - currentSpeed)) possibleMoves.add(0);
-        if (!isWallCollision(x, y + currentSpeed)) possibleMoves.add(1);
-        if (!isWallCollision(x - currentSpeed, y)) possibleMoves.add(2);
-        if (!isWallCollision(x + currentSpeed, y)) possibleMoves.add(3);
+        if (!isWallCollision(x, y - moveSpeed)) possibleMoves.add(0);
+        if (!isWallCollision(x, y + moveSpeed)) possibleMoves.add(1);
+        if (!isWallCollision(x - moveSpeed, y)) possibleMoves.add(2);
+        if (!isWallCollision(x + moveSpeed, y)) possibleMoves.add(3);
 
         if (possibleMoves.isEmpty()) return;
-        if (possibleMoves.size() > 1 && lastDirection != -1) {
+
+        if (!dead && possibleMoves.size() > 1 && lastDirection != -1) {
             possibleMoves.remove(Integer.valueOf(getOpposite(lastDirection)));
         }
-        if (possibleMoves.isEmpty()) return;
+        if (possibleMoves.isEmpty()) { // Sécurité
+            if (!isWallCollision(x, y - moveSpeed)) possibleMoves.add(0);
+            if (!isWallCollision(x, y + moveSpeed)) possibleMoves.add(1);
+            if (!isWallCollision(x - moveSpeed, y)) possibleMoves.add(2);
+            if (!isWallCollision(x + moveSpeed, y)) possibleMoves.add(3);
+        }
 
         int bestMove = -1;
 
-        // --- MODE FUITE ---
-        if (frightened) {
-            double panicChance = random.nextDouble();
-            if (panicChance < 0.90) { // 90% Fuite intelligente
-                bestMove = getFleeMove(possibleMoves, pacMan.getX(), pacMan.getY(), currentSpeed);
-            } else { // 10% Panique hasard
-                bestMove = possibleMoves.get(random.nextInt(possibleMoves.size()));
-            }
+        // --- CAS 1 : MORT (GPS INTELLIGENT) ---
+        if (dead) {
+            // On utilise un vrai algorithme de chemin (BFS) au lieu de la distance simple
+            // On vise la porte (startX, doorY)
+            bestMove = getSmartMove(startX, doorY);
         }
-        // --- MODE NORMAL ---
+
+        // --- CAS 2 : APEURÉ ---
+        else if (frightened) {
+            double panicChance = random.nextDouble();
+            if (panicChance < 0.90) bestMove = getFleeMove(possibleMoves, pacMan.getX(), pacMan.getY(), moveSpeed);
+            else bestMove = possibleMoves.get(random.nextInt(possibleMoves.size()));
+        }
+
+        // --- CAS 3 : NORMAL ---
         else {
             double chance = random.nextDouble();
             if (chance < aggressiveness) {
                 int targetX = pacMan.getX();
                 int targetY = pacMan.getY();
-
-                // Cibles Spéciales
                 if (color == Color.PINK) {
-                    targetX += pacMan.getDx() * 32 * 4;
-                    targetY += pacMan.getDy() * 32 * 4;
+                    targetX += pacMan.getDx() * 32 * 4; targetY += pacMan.getDy() * 32 * 4;
                 } else if (color == Color.ORANGE) {
-                    targetX -= pacMan.getDx() * 32 * 4;
-                    targetY -= pacMan.getDy() * 32 * 4;
+                    targetX -= pacMan.getDx() * 32 * 4; targetY -= pacMan.getDy() * 32 * 4;
                 }
-                bestMove = getBestMoveToTarget(possibleMoves, targetX, targetY, currentSpeed);
+                bestMove = getBestMoveToTarget(possibleMoves, targetX, targetY, moveSpeed);
             } else {
                 bestMove = possibleMoves.get(random.nextInt(possibleMoves.size()));
             }
@@ -131,11 +177,73 @@ public class Ghost implements GameObject {
 
         lastDirection = bestMove;
         switch (bestMove) {
-            case 0: dx = 0; dy = -currentSpeed; break;
-            case 1: dx = 0; dy = currentSpeed; break;
-            case 2: dx = -currentSpeed; dy = 0; break;
-            case 3: dx = currentSpeed; dy = 0; break;
+            case 0: dx = 0; dy = -moveSpeed; break;
+            case 1: dx = 0; dy = moveSpeed; break;
+            case 2: dx = -moveSpeed; dy = 0; break;
+            case 3: dx = moveSpeed; dy = 0; break;
         }
+    }
+
+    // --- ALGORITHME GPS (BFS) ---
+    // Trouve le chemin réel contournant les murs
+    private int getSmartMove(int targetPixelX, int targetPixelY) {
+        int startGridX = x / gridSize;
+        int startGridY = y / gridSize;
+        int targetGridX = targetPixelX / gridSize;
+        int targetGridY = targetPixelY / gridSize;
+
+        // Si on est déjà dessus
+        if (startGridX == targetGridX && startGridY == targetGridY) return -1;
+
+        // Structure pour explorer : {x, y, premièreDirectionPrise}
+        Queue<int[]> queue = new LinkedList<>();
+        boolean[][] visited = new boolean[map.getWidth()/gridSize][map.getHeight()/gridSize];
+
+        // Ajouter les voisins initiaux
+        // 0:Haut, 1:Bas, 2:Gauche, 3:Droite
+        int[] dX = {0, 0, -1, 1};
+        int[] dY = {-1, 1, 0, 0};
+
+        for (int i = 0; i < 4; i++) {
+            int nextX = startGridX + dX[i];
+            int nextY = startGridY + dY[i];
+
+            // Si c'est un mur ou hors map, on ignore
+            if (nextX < 0 || nextX >= visited.length || nextY < 0 || nextY >= visited[0].length) continue;
+            if (map.isWall(nextX * gridSize, nextY * gridSize)) continue;
+
+            // On ajoute à la file d'attente
+            queue.add(new int[]{nextX, nextY, i});
+            visited[nextX][nextY] = true;
+        }
+
+        // Exploration
+        while (!queue.isEmpty()) {
+            int[] current = queue.poll();
+            int cx = current[0];
+            int cy = current[1];
+            int firstDir = current[2];
+
+            // A-t-on trouvé la cible ?
+            if (cx == targetGridX && cy == targetGridY) {
+                return firstDir; // On renvoie la direction qu'il fallait prendre au début
+            }
+
+            // Sinon on continue d'explorer les voisins
+            for (int i = 0; i < 4; i++) {
+                int nx = cx + dX[i];
+                int ny = cy + dY[i];
+
+                if (nx >= 0 && nx < visited.length && ny >= 0 && ny < visited[0].length && !visited[nx][ny]) {
+                    if (!map.isWall(nx * gridSize, ny * gridSize)) {
+                        visited[nx][ny] = true;
+                        // On garde la 'firstDir' d'origine pour savoir par où commencer
+                        queue.add(new int[]{nx, ny, firstDir});
+                    }
+                }
+            }
+        }
+        return -1; // Pas de chemin trouvé (ne devrait pas arriver)
     }
 
     private int getBestMoveToTarget(ArrayList<Integer> moves, int targetX, int targetY, int spd) {
@@ -175,23 +283,30 @@ public class Ghost implements GameObject {
 
     @Override
     public void draw(Graphics g) {
-        if (frightened) {
-            if (frightenedTimer < 120 && (frightenedTimer/10)%2 == 0) g.setColor(Color.WHITE);
-            else g.setColor(new Color(50, 50, 255));
-        } else {
-            g.setColor(color);
+        if (!dead) {
+            if (frightened) {
+                if (frightenedTimer < 120 && (frightenedTimer/10)%2 == 0) g.setColor(Color.WHITE);
+                else g.setColor(new Color(50, 50, 255));
+            } else {
+                g.setColor(color);
+            }
+            g.fillArc(x, y, gridSize, gridSize, 0, 180);
+            g.fillRect(x, y+gridSize/2, gridSize, gridSize/2);
+            int fs = gridSize/3;
+            g.fillOval(x, y+gridSize-fs/2, fs, fs);
+            g.fillOval(x+fs, y+gridSize-fs/2, fs, fs);
+            g.fillOval(x+fs*2, y+gridSize-fs/2, fs, fs);
         }
-        g.fillArc(x, y, gridSize, gridSize, 0, 180);
-        g.fillRect(x, y+gridSize/2, gridSize, gridSize/2);
-        int fs = gridSize/3;
-        g.fillOval(x, y+gridSize-fs/2, fs, fs);
-        g.fillOval(x+fs, y+gridSize-fs/2, fs, fs);
-        g.fillOval(x+fs*2, y+gridSize-fs/2, fs, fs);
 
         g.setColor(Color.WHITE); g.fillOval(x+6, y+8, 8, 8); g.fillOval(x+18, y+8, 8, 8);
-        g.setColor(frightened ? new Color(255, 200, 200) : Color.BLUE);
-        int ox = (dx > 0) ? 2 : (dx < 0) ? -2 : 0;
-        int oy = (dy > 0) ? 2 : (dy < 0) ? -2 : 0;
+        g.setColor(frightened && !dead ? new Color(255, 200, 200) : Color.BLUE);
+        int ox = 0, oy = 0;
+        int lookDx = dx; int lookDy = dy;
+
+        if (dead && lookDx == 0 && lookDy == 0) lookDy = -1;
+        if (lookDx > 0) ox = 2; else if (lookDx < 0) ox = -2;
+        if (lookDy > 0) oy = 2; else if (lookDy < 0) oy = -2;
+
         g.fillOval(x+8+ox, y+10+oy, 4, 4); g.fillOval(x+20+ox, y+10+oy, 4, 4);
     }
 
