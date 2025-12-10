@@ -9,7 +9,7 @@ public class Cherry implements GameObject {
 
     // Timer pour le spawn
     private int timer = 0;
-    private int spawnTime; // Le moment où elle va apparaître (en frames)
+    private int spawnTime;
 
     // Références nécessaires
     private GameMap map;
@@ -28,7 +28,7 @@ public class Cherry implements GameObject {
         isVisible = false;
         timer = 0;
         // Le jeu tourne à environ 60 images par seconde (16ms)
-        // 10 secondes = 600 frames, 30 secondes = 1800 frames
+        // 600 frames = 10 sec, 1800 frames = 30 sec
         int minFrames = 600;
         int maxFrames = 1800;
         spawnTime = minFrames + (int)(Math.random() * (maxFrames - minFrames));
@@ -57,39 +57,45 @@ public class Cherry implements GameObject {
         }
     }
 
+    // Méthode publique appelée par le GamePanel quand le son est joué
+    public void eat() {
+        pacMan.addScore(100); // +100 points
+        resetTimer();         // On cache la cerise et on relance le chrono
+    }
+
     @Override
     public void update() {
+        // Si la cerise est cachée, on fait avancer le chrono
         if (!isVisible) {
             timer++;
             if (timer >= spawnTime) {
                 spawn();
             }
-        } else {
+        }
+        // Si elle est visible, on vérifie si PacMan la mange
+        else {
             checkCollision();
         }
     }
 
     private void checkCollision() {
-        // On récupère la position de PacMan
-        int px = pacMan.getX();
-        int py = pacMan.getY();
+        Rectangle pacManBounds = pacMan.getBounds();
+        Rectangle cherryBounds = new Rectangle(x, y, gridSize, gridSize);
 
-        // Calcul simple de distance (si les centres sont proches)
-        // On considère mangé si la distance est inférieure à la taille d'une case
-        double distance = Math.sqrt(Math.pow(x - px, 2) + Math.pow(y - py, 2));
-
-        if (distance < gridSize) {
-            // MIAM !
-            pacMan.addScore(100); // +100 points
-            resetTimer(); // On relance le compteur pour la prochaine cerise
+        if (pacManBounds.intersects(cherryBounds)) {
+            // Note : Le GamePanel gère le son, ici on gère le score et le reset
+            eat();
         }
     }
+
+    // --- GETTERS (Indispensables pour que GamePanel sache quand jouer le son) ---
+    public int getX() { return x; }
+    public int getY() { return y; }
+    public boolean isVisible() { return isVisible; }
 
     @Override
     public void draw(Graphics g) {
         if (isVisible) {
-            // --- CORRECTION ICI ---
-            // On convertit 'g' en 'Graphics2D' pour avoir accès aux options avancées
             Graphics2D g2d = (Graphics2D) g;
 
             // Activation de l'antialiasing pour que la cerise soit jolie (pas pixellisée)
@@ -105,7 +111,6 @@ public class Cherry implements GameObject {
 
             // La queue (ligne verte)
             g2d.setColor(Color.GREEN);
-            // Maintenant setStroke fonctionne car on utilise g2d
             g2d.setStroke(new BasicStroke(2));
             g2d.drawLine(centerX - 5, centerY, centerX, centerY - 10);
             g2d.drawLine(centerX + 7, centerY - 2, centerX, centerY - 10);
