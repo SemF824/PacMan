@@ -1,8 +1,4 @@
-import game_items.Cherry;
-import game_items.GameObject;
-import game_items.GameMap;
-import game_items.Ghost;
-import game_items.PacMan;
+import game_items.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -11,6 +7,8 @@ import java.util.ArrayList;
 
 public class GamePanel extends JPanel implements KeyListener, ActionListener {
 
+    private Sound sound = new Sound();
+    private boolean isFrightenedMode = false;
     private PacMan pacMan;
     private GameMap gameMap;
     private Cherry cherry;
@@ -90,6 +88,10 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
         gameObjects.add(cherry);
         gameObjects.addAll(ghosts);
         gameObjects.add(pacMan);
+
+        sound.stopAll(); // Coupe les anciens sons si on redémarre
+        sound.loop(5); // 5 = Siren.wav (Ambiance de fond)
+        this.isFrightenedMode = false;
     }
 
     private void resetPositions() {
@@ -110,12 +112,40 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
             gameObject.update();
         }
 
+        if (cherry.isVisible() && pacMan.getBounds().intersects(new Rectangle(cherry.getX(), cherry.getY(), 32, 32))) {
+                cherry.eat();   // La cerise gère son score et son reset
+                sound.play(4);  // <-- Le GamePanel joue le son "Fruit"
+        }
+
         int foodStatus = pacMan.checkFood();
         if (foodStatus == 1) {
             pacMan.addScore(10);
+            sound.play(1); // <-- Son "Chomp" pour un petit point
         } else if (foodStatus == 2) {
             pacMan.addScore(50);
             for (Ghost g : ghosts) g.startFrightened();
+            if (!isFrightenedMode) {
+                sound.stop(5); // On coupe la sirène
+                sound.loop(6); // On lance la musique "Power"
+                isFrightenedMode = true;
+            }
+        }
+
+        if (isFrightenedMode) {
+            boolean ghostsAreSafe = true;
+            for (Ghost g : ghosts) {
+                if (g.isFrightened()) {
+                    ghostsAreSafe = false; // Il en reste au moins un qui a peur
+                    break;
+                }
+            }
+
+            // Si plus aucun fantôme n'a peur, on remet l'ambiance normale
+            if (ghostsAreSafe) {
+                sound.stop(6); // Stop Power
+                sound.loop(5); // Retour de la Sirène
+                isFrightenedMode = false;
+            }
         }
 
         checkGhostCollisions();
@@ -131,16 +161,27 @@ public class GamePanel extends JPanel implements KeyListener, ActionListener {
                 if (ghost.isFrightened()) {
                     pacMan.addScore(200);
                     ghost.die();
+                    sound.play(2); // <-- Son "Eat Ghost"
                 } else {
                     pacMan.loseLife();
                     System.out.println("Aie ! Vies restantes : " + pacMan.getLives());
+                    // COUPURE SON IMMÉDIATE
+                    sound.stop(5);
+                    sound.stop(6);
 
                     if (pacMan.getLives() > 0) {
                         resetPositions();
+                        sound.play(3); // <-- Son "Death" (ou un petit bruit de dégât)
+
+                        sound.loop(5);
+                        isFrightenedMode = false;
+
                     } else {
                         // --- C'EST ICI QUE LE GAME OVER S'ACTIVE ---
                         System.out.println("GAME OVER");
                         gameOver = true; // On active l'état de fin
+                        sound.stopAll(); // On arrête tout le reste
+                        sound.play(3);   // <-- Son de mort finale
                         restartButton.setVisible(true); // On affiche le bouton
                     }
                 }

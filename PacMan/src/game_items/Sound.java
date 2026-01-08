@@ -54,6 +54,8 @@ public class Sound {
 
     public void loop(int i) {
         if (clips[i] == null) return;
+        clips[i].setFramePosition(0);
+
         clips[i].loop(Clip.LOOP_CONTINUOUSLY);
     }
 
